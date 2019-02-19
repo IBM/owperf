@@ -46,8 +46,8 @@ This test suite benchmarks an OpenWhisk deployment for (warm) latency and throug
 The general operation of a test is simple: 
 1. **Setup**: the tool creates the test action, test trigger, and a number of rules that matches the ratio tunable above.
 1. **Test**: the tool fires up a specified number of concurrent clients - a master and workers. 
-   1. Each client wakes up once every _delta_ msec (iteration) and invokes the specified activity: either the trigger (for rule testing) or multiple concurrent actions - matching the ratio tunable. All invocations are asynchronous.
-   1. After each client has completed a number of initial iterations (warmup), measurement begins, controlled by the master client, for either a specified number of iterations or speficied time.
+   1. Each client wakes up once every _delta_ msec (iteration) and invokes the specified activity: either the trigger (for rule testing) or multiple concurrent actions - matching the ratio tunable. Action invocations can be blocking.
+   1. After each client has completed a number of initial iterations (warmup), measurement begins, controlled by the master client, for either a specified number of iterations or specified time.
    1. At the end of the measurement, each client retrieves the activation records of its triggers and/or actions, and generates summary data that is sent to the master, which generates and prints the final results.
 1. **Teardown**: clean up the OpenWhisk assets created during setup
 
@@ -55,41 +55,41 @@ Final results are written to the standard output stream (so can be redirected to
 
 It is possible to invoke the tool in "Master apart" mode, where the master client is invoking a diffrent activity than the workers, and at possibly a different (very likely, much slower) rate. In this mode, latency statsitics are computed based solely on the master's data, since the worker's activity is used only as background to stress the OpenWhisk deployment. So one experiment can have the master client invoke rules and another one can have the master client invoke actions, while in both experiments the worker clients perform the same background activity.
 
-The test action sleep delay is by default 50 msec. Sleep delay can be explicitly set via the tool CLI. More advanced users can replace the test action with a custom action to benchmark action or event-respose throughput and latency of specific applications.  
+The tool is highly customizable via CLI options. All the independent test variables are controlled via CLI. This includes number of workers, invocation pattern, OW client configuration, test action sleep time, etc. 
+
+Test setup and teardown can be independently skipped via CLI, and/or directly invoked from the external setup script (```setup.sh```), so that setup can be shared between multiple tests. More advanced users can replace the test action with a custom action in the setup script to benchmark action invocation or event-respose throughput and latency of specific applications.  
 
 **Clock skew**: OpenWhisk is a distributed system, which means that clock skew is expected between the client machine computing invocation timestamps and the controllers or invokers that generate the timestamps in the activation records. However, this tool assumes that clock skew is bound at few msec range, due to having all machines clocks synchronized, typically using NTP. At such a scale, clock skew is quite small compared to the measured time periods. Some of the time periods are measured using the same clock (see below) and are therefore oblivious to clock skew issues.
 
 #### Usage
-The tool itself is located in the ```overhead``` sub-folder. It uses the settings in ```~/.wskprops``` to connect to OpenWhisk. You need to have node.js installed (v8+) and perform ```npm install``` in the tool folder before the first use to install the dependencies.
+The tool itself is located in the ```overhead``` sub-folder. By default, it uses the settings in ```~/.wskprops``` to connect to OpenWhisk. You need to have node.js installed (v8+) and perform ```npm install``` in the tool folder before the first use to install the dependencies.
 
-Using the tool follows the test operation described above:
-1. Run ```./setup.sh <ratio>``` to setup the OpenWhisk assets for the experiment
-1. Run ```node overhead.js <options>``` to perform the test. To see all the available options and defaults run ```node overhead.js -h```.
-1. Run ```./teardown.sh <ratio>``` to clean up the assets after the experiment completes.
+To use the tool, run ```node overhead.js <options>``` to perform a test. To see all the available options and defaults run ```node overhead.js -h```.
 
 The default for ratio is 1. If using a different ratio, be sure to specify the same ratio value for all steps.
 
-An example test:
-1. Setup a test for a ratio of 4: ```./setup.sh 4```
-1. Perform a test of rule performance with 3 clients, default delta of 200 msec, so 5 iterations per second per client, total of 15 iterations per second, for 100 iterations (counted at the master client, excluding the warmup), ratio of 4 (yielding 15x4=60 rule invocations per second): ```node overhead.js -a rule -w 3 -i 100 -r 4```
-1. Clean up: ```./teardown.sh 4```
+For example, let's perform a test of rule performance with 3 clients, using the default delta of 200 msec, for 100 iterations (counted at the master client, excluding the warmup), ratio of 4. Each client performs 5 iterations per second, each iteration firing a trigger that invokes 4 rules, yielding a total of 3x5x4=60 rule invocations per second. The command to run this test: ```node overhead.js -a rule -w 3 -i 100 -r 4```
 
 #### Measurements
 As explained above, the overhead tool collects both latency and throughput data at each experiment.
 
 ##### Latency
 The following time-stamps are collected for each invocation, of either action, or rule (containing an action):
-* **BI** (Before Invocation) - taken by a client immediately before invoking - either the trigger fire (for rules), or the group of _ratio_ concurrent actions. All invoked actions in the same iteration have the same BI value. 
+* **BI** (Before Invocation) - taken by a client immediately before invoking - either the trigger fire (for rules), or an action invocation. 
 * **TS** (Trigger Start) - taken from the activation record of the trigger linked to the rules, so applies only to rule tests. All actions invoked by the rules of the same trigger have the same TS value.
 * **AS** (Action Start) - taken from the activation record of the action. 
 * **AE** (Action End) - taken from the activation record of the action.
+* **AI** (After Invocation) - taken by the client immmediately after the invocation, for blocking action invocation tests only. 
 
 Based on these timestamps, the following measurements are taken:
 * **OEA** (Overhead of Entering Action) - OpenWhisk processing overhead from sending the action invocation or trigger fire to the beginning of the action execution. OEA = AS-BI
 * **D** - the duration of the test action - as reported by the action itself in the return value.
 * **AD** - Action Duration - as measured by OpenWhisk invoker. AD = AE - AS. Always expect that AD >= D.
 * **OER** (Overhead of Executing Request) - OpenWhisk processing overhead from sending the action invocation or trigger fire to the completion of the action execution in the OpenWhisk Invoker. OER = AE-BI-D
-* **TA** (Trigger to Answer) - the processing time from the start of the trigger process to the start of the action. TA = AS-TS
+* **TA** (Trigger to Answer) - the processing time from the start of the trigger process to the start of the action (rule tests only). TA = AS-TS
+* **ORA** (Overhead of Returning from Action) - time from action end till being received by the client (blocking action tests only). ORA = AI - AE
+* **RTT** (Round Trip Time) - time at the client from action invocation till reply received (blocking action tests only). RTT = AI - BI
+* **ORTT** (Overhead of RTT) - RTT at the client exclugin the net action computation time. ORTT = RTT - D
 
 For each measurement, the tool computes average (_avg_), standard deviation (_std_), and extremes (_min_ and _max_).
 
@@ -110,3 +110,4 @@ Aside from that, the tool also counts **errors**. Failed invocations - of action
 
 ##### Acknowledgements
 The overhead tool has been developed by IBM Research as part of the [CLASS](https://class-project.eu/) EU project. CLASS aims to integrate OpenWhisk as a foundation for latency-sensitive polyglot event-driven big-data analytics platform running on a compute continuum from the cloud to the edge. CLASS is funded by the European Union's Horizon 2020 Programme grant agreement No. 780622.
+

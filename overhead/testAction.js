@@ -4,10 +4,11 @@ function sleep(ms) {
 
 async function main(params) {
   var start = new Date().getTime();
+  params.activationId = process.env.__OW_ACTIVATION_ID;
   await sleep(parseInt(params.sleep));
   var end = new Date().getTime();
-  var dur = end - start;
-  return {slept: dur}; 
+  params.duration = end - start;
+  return params; 
 }
 
 // main().then(dur => console.log(dur));
