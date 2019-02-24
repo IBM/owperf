@@ -82,14 +82,14 @@ const tpCounters = {attempts: 0, invocations: 0, activations: 0, requests: 0, er
 
 // counters for latency computation
 const latCounters = {
-					ta: {sum: 0, sumSqr: 0, min: undefined, max: undefined}, 
-					oea: {sum: 0, sumSqr: 0, min: undefined, max: undefined}, 
-					oer: {sum: 0, sumSqr: 0, min: undefined, max: undefined}, 
-					d: {sum: 0, sumSqr: 0, min: undefined, max: undefined}, 
-					ad: {sum: 0, sumSqr: 0, min: undefined, max: undefined},
-					ora: {sum: 0, sumSqr: 0, min: undefined, max: undefined},
-					rtt: {sum: 0, sumSqr: 0, min: undefined, max: undefined},
-					ortt: {sum: 0, sumSqr: 0, min: undefined, max: undefined}
+					ta: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined}, 
+					oea: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined}, 
+					oer: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined}, 
+					d: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined}, 
+					ad: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined},
+					ora: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined},
+					rtt: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined},
+					ortt: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined}
 };
 
 const measurementTime = {start: -1, stop: -1};
@@ -270,7 +270,7 @@ var remainingIterations = -1;
 function checkInit() {
 	remainingInits--;
 	if (remainingInits == 0) {	// all workers are engaged (incl. master) - can start measurement
-		mLog("All workers engaged. Start measurement.");
+		mLog("All clients finished warmup. Start measurement.");
 		measurementTime.start = new Date().getTime();
 
 		if (testRecord.input.period)
@@ -306,7 +306,7 @@ function checkSummary() {
 	remainingSummaries--;
 	if (remainingSummaries == 0) {
 		mLogSampleHeader();
-		mLog("All workers post-processing completed - computing output.")
+		mLog("All clients post-processing completed - computing output.")
 		computeOutputRecord();
 		checkExit();
 	}
@@ -547,7 +547,7 @@ function processSample(sample, activation) {
 		}
 	}
 	else
-		ts = NaN;
+		ts = undefined;
 
 	if (sample.aaidError) {	// action activation failed - count one request, one error. No further processing.
 		tpCounters.requests++;
@@ -573,11 +573,11 @@ function processSample(sample, activation) {
 	// Activation is in time frame, so count one activation, one request and one full invocation 
 	tpCounters.activations++;
 	tpCounters.requests++;
-	tpCounters.invocations++;	
+	tpCounters.invocations++;
 
 	// For full invocations, update latency counters
 
-	const ta = as - ts;
+	const ta = (ts ? as - ts : undefined);
 	const ad = ae - as;
 	const oea = as - bi;
 	const oer = ae - bi - d;
@@ -590,9 +590,10 @@ function processSample(sample, activation) {
 
 	// for blocking action invocations - will be "undefined" otherwise
 	const ai = sample.ai;
-	const ora = ai - ae;
-	const rtt = ai - bi;
-	const ortt = rtt - d;
+
+	const ora = (ai ? ai - ae : undefined);
+	const rtt = (ai ? ai - bi : undefined);
+	const ortt = (rtt ? rtt - d : undefined);
 
 	updateLatSample("ora", ora);
 	updateLatSample("rtt", rtt);
@@ -602,14 +603,28 @@ function processSample(sample, activation) {
 }
 
 /**
- * Update counters of one latency statistic of a worker with data from one sample
+ * Update counters of one latency statistic of a worker with value data from one sample
  */
 function updateLatSample(statName, value) {
 
+	if (!value) 	// value == undefined => skip it
+		return;
+
+	// Update sum for avg
+	if (!latCounters[statName].sum)
+		latCounters[statName].sum = 0;
 	latCounters[statName].sum += value;
+
+	// Update sumSqr for std
+	if (!latCounters[statName].sumSqr)
+		latCounters[statName].sumSqr = 0;
 	latCounters[statName].sumSqr += value * value;
+
+	// Update min value
 	if (!latCounters[statName].min || latCounters[statName].min > value)
 		latCounters[statName].min = value;
+
+	// Update max value
 	if (!latCounters[statName].max || latCounters[statName].max < value)
 		latCounters[statName].max = value;
 }
@@ -622,17 +637,17 @@ function updateLatSample(statName, value) {
  */
 function computeOutputRecord() {
 
-	// Latency stats: avg + std
+	// Latency stats: avg, std, min, max
 	["ta", "oea", "oer", "d", "ad", "ora", "rtt", "ortt"].forEach(statName => {
 		testRecord.output[statName] = computeLatStats(statName);
 	});
 
-	// Tp stats: tp + tpw
+	// Tp stats: abs, tp, tpw, tpd
 	["attempts", "invocations", "activations", "requests"].forEach(statName => {
 		testRecord.output[statName] = computeTpStats(statName);
 	});
 
-	// Error stats: percentage
+	// Error stats: abs, percent
 	testRecord.output.errors = computErrorStats();
 }
 
@@ -645,6 +660,7 @@ function computeLatStats(statName) {
 	var totalSum = 0;
 	var totalSumSqr = 0;
 	var totalInvocations = 0;
+	var hasSamples = undefined;	// does the current stat have any samples. If not => undefined, not NaN
 	var min = undefined;
 	var max = undefined;
 	if (testRecord.input.master_apart) {	// in master_apart mode, only master performs latency measurements
@@ -655,18 +671,21 @@ function computeLatStats(statName) {
 		totalInvocations = workerData[0].tp.invocations;
 	}
 	else // in regular mode, all workers participate in latency measurements
-		workerData.forEach(wd => { 
-			totalSum += wd.lat[statName].sum;
-			totalSumSqr += wd.lat[statName].sumSqr;
-			if (!min || min > wd.lat[statName].min)
-				min = wd.lat[statName].min;
-			if (!max || max < wd.lat[statName].max)
-				max = wd.lat[statName].max;
+		workerData.forEach(wd => {
+			if (wd.lat[statName].sum) {	// If this worker has valid latency samples (not undefined)
+				hasSamples = 1;
+				totalSum += wd.lat[statName].sum;
+				totalSumSqr += wd.lat[statName].sumSqr;
+				if (!min || min > wd.lat[statName].min)
+					min = wd.lat[statName].min;
+				if (!max || max < wd.lat[statName].max)
+					max = wd.lat[statName].max;
+			}
 			totalInvocations += wd.tp.invocations;
 		});
 
-	const avg = totalSum / totalInvocations;
-	const std = Math.sqrt(totalSumSqr / totalInvocations - avg * avg);
+	const avg = (hasSamples ? totalSum / totalInvocations : undefined);
+	const std = (hasSamples ? Math.sqrt(totalSumSqr / totalInvocations - avg * avg) : undefined);
 
 	return ({avg: avg, std: std, min: min, max: max});
 }
