@@ -59,7 +59,7 @@ The default for ratio is 1. If using a different ratio, be sure to specify the s
 For example, let's perform a test of rule performance with 3 clients, using the default delta of 200 msec, for 100 iterations (counted at the master client, excluding the warmup), ratio of 4. Each client performs 5 iterations per second, each iteration firing a trigger that invokes 4 rules, yielding a total of 3x5x4=60 rule invocations per second. The command to run this test: ```node overhead.js -a rule -w 3 -i 100 -r 4```
 
 ## Measurements
-As explained above, the overhead tool collects both latency and throughput data at each experiment.
+As explained above, the owperf tool collects both latency and throughput data at each experiment.
 
 ### Latency
 The following time-stamps are collected for each invocation, of either action, or rule (containing an action):
@@ -97,5 +97,5 @@ For each counter, the tool reports the total counter value (_abs_), total throug
 Aside from that, the tool also counts **errors**. Failed invocations - of actions, of triggers, or of actions from triggers (via rules) are counted each as an error. The tool reports both absolute error count (_abs_) and percent out of requests (_percent_). 
 
 ## Acknowledgements
-The overhead tool has been developed by IBM Research as part of the [CLASS](https://class-project.eu/) EU project. CLASS aims to integrate OpenWhisk as a foundation for latency-sensitive polyglot event-driven big-data analytics platform running on a compute continuum from the cloud to the edge. CLASS is funded by the European Union's Horizon 2020 Programme grant agreement No. 780622.
+The owperf tool has been developed by IBM Research as part of the [CLASS](https://class-project.eu/) EU project. CLASS aims to integrate OpenWhisk as a foundation for latency-sensitive polyglot event-driven big-data analytics platform running on a compute continuum from the cloud to the edge. CLASS is funded by the European Union's Horizon 2020 Programme grant agreement No. 780622.
 
