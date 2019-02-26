@@ -52,11 +52,11 @@ The tool requires very little setup. You need to have node.js (v8+) and the wsk 
 **Throttling**: By default, OW performance is throttled according to some [limits](https://github.com/apache/incubator-openwhisk/blob/master/docs/reference.md#system-limits), such as maximum number of concurrent requests, or maximum invocations per minute. If your benchmark stresses OpenWhisk beyond the limit value, you might want to relax those limits. If it's an OpenWhisk deployment that you control, you can set the limits to 999999, thereby effectively cancelling the limits. If it's a third-party service, you may want to consult the service documentation and/or support to see what limits can be relaxed and by how much.
 
 ## Usage
-To use the tool, run ```node overhead.js <options>``` to perform a test. To see all the available options and defaults run ```node overhead.js -h```.
+To use the tool, run ```./owperf.sh <options>``` to perform a test. To see all the available options and defaults run ```./owperf.sh -h```.
 
 The default for ratio is 1. If using a different ratio, be sure to specify the same ratio value for all steps.
 
-For example, let's perform a test of rule performance with 3 clients, using the default delta of 200 msec, for 100 iterations (counted at the master client, excluding the warmup), ratio of 4. Each client performs 5 iterations per second, each iteration firing a trigger that invokes 4 rules, yielding a total of 3x5x4=60 rule invocations per second. The command to run this test: ```node overhead.js -a rule -w 3 -i 100 -r 4```
+For example, let's perform a test of rule performance with 3 clients, using the default delta of 200 msec, for 100 iterations (counted at the master client, excluding the warmup), ratio of 4. Each client performs 5 iterations per second, each iteration firing a trigger that invokes 4 rules, yielding a total of 3x5x4=60 rule invocations per second. The command to run this test: ```./owperf.sh -a rule -w 3 -i 100 -r 4```
 
 ## Measurements
 As explained above, the owperf tool collects both latency and throughput data at each experiment.
@@ -83,7 +83,7 @@ For each measurement, the tool computes average (_avg_), standard deviation (_st
 
 The following chart depicts the relationship between the various measurements and the action invocation and rule invocation flows.
 
-![](overhead/overhead_data.png)
+![](owperf_data.png)
 
 ### Throughput
 Throughput is measured w.r.t. several different counters. During post-processing of an experiment, each counter value is divided by the measurement time period to compute a respective throughput.

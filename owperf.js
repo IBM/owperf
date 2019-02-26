@@ -1,6 +1,6 @@
 /**
- * This is a test program for computing the runtime overhead of OpenWhisk actions and rules. 
- * The full documentation of the tool is available in README.md in the upper folder.
+ * This is a test tool for measuring the performance of OpenWhisk actions and rules. 
+ * The full documentation of the tool is available in README.md .
  */
 
 const fs = require('fs');
