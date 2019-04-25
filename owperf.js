@@ -102,14 +102,14 @@ const tpCounters = {attempts: 0, invocations: 0, activations: 0, requests: 0, er
 
 // counters for latency computation
 const latCounters = {
-                    ta: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined},
-                    oea: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined},
-                    oer: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined},
-                    d: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined},
-                    ad: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined},
-                    ora: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined},
-                    rtt: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined},
-                    ortt: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined}
+                    ta: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
+                    oea: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
+                    oer: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
+                    d: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
+                    ad: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
+                    ora: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
+                    rtt: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
+                    ortt: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0}
 };
 
 const measurementTime = {start: -1, stop: -1};
@@ -630,6 +630,9 @@ function updateLatSample(statName, value) {
     if (!value)     // value == undefined => skip it
         return;
 
+    // increase sample counter
+    latCounters[statName].cnt++;
+
     // Update sum for avg
     if (!latCounters[statName].sum)
         latCounters[statName].sum = 0;
@@ -679,8 +682,7 @@ function computeOutputRecord() {
 function computeLatStats(statName) {
     var totalSum = 0;
     var totalSumSqr = 0;
-    var totalInvocations = 0;
-    var hasSamples = undefined;    // does the current stat have any samples. If not => undefined, not NaN
+    var totalCount = 0;
     var min = undefined;
     var max = undefined;
     if (testRecord.input.master_apart) {    // in master_apart mode, only master performs latency measurements
@@ -688,12 +690,11 @@ function computeLatStats(statName) {
         totalSumSqr = workerData[0].lat[statName].sumSqr;
         min = workerData[0].lat[statName].min;
         max = workerData[0].lat[statName].max;
-        totalInvocations = workerData[0].tp.invocations;
+        totalCount = workerData[0].lat[statName].cnt;
     }
     else // in regular mode, all workers participate in latency measurements
         workerData.forEach(wd => {
-            if (wd.lat[statName].sum) {    // If this worker has valid latency samples (not undefined)
-                hasSamples = 1;
+            if (wd.lat[statName].cnt > 0) {    // If this worker has valid latency samples
                 totalSum += wd.lat[statName].sum;
                 totalSumSqr += wd.lat[statName].sumSqr;
                 if (!min || min > wd.lat[statName].min)
@@ -701,13 +702,13 @@ function computeLatStats(statName) {
                 if (!max || max < wd.lat[statName].max)
                     max = wd.lat[statName].max;
             }
-            totalInvocations += wd.tp.invocations;
+            totalCount += wd.lat[statName].cnt;
         });
 
-    const avg = (hasSamples ? totalSum / totalInvocations : undefined);
-    const std = (hasSamples ? Math.sqrt(totalSumSqr / totalInvocations - avg * avg) : undefined);
+    const avg = (totalCount > 0 ? totalSum / totalCount : undefined);
+    const std = (totalCount > 0 ? Math.sqrt(totalSumSqr / totalCount - avg * avg) : undefined);
 
-    return ({avg: avg, std: std, min: min, max: max});
+    return ({avg: avg, std: std, min: min, max: max, cnt: totalCount});
 }
 
 
