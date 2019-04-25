@@ -373,9 +373,9 @@ async function mainLoop() {
         var samples;
 
         if (activity == ACTION)
-            samples = await invokeActions(testRecord.input.ratio, doBlocking, getResult, si);
+            samples = await invokeActions(testRecord.input.ratio, doBlocking, getResult);
         else
-            samples = await invokeRules(si);
+            samples = await invokeRules();
 
         samples.forEach(sample => {
             sampleData.push(sample);
@@ -406,8 +406,9 @@ function abortLoop() {
  * Invoke the predefined OW action a specified number of times without waiting using Promises (burst).
  * Returns a promise that resolves to an array of {id, isError}.
  */
-function invokeActions(count, doBlocking, getResult, burst_bi) {
+function invokeActions(count, doBlocking, getResult) {
     return new Promise( function (resolve, reject) {
+        const burst_bi = new Date().getTime();
         var ipa = [];    // array of invocation promises;
         for(var i = 0; i< count; i++) {
             ipa[i] = new Promise((resolve, reject) => {
@@ -440,8 +441,9 @@ function invokeActions(count, doBlocking, getResult, burst_bi) {
 /**
  * Invoke the predefined OW rules asynchronously and return a promise of an array with a single element of {id, isError}
  */
-function invokeRules(bi) {
+function invokeRules() {
     return new Promise( function (resolve, reject) {
+        const bi = new Date().getTime();
         const triggerSamples = [];
         // Fire trigger to invoke the rule
         ow.triggers.invoke({name: 'testTrigger', params: params})
