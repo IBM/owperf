@@ -98,10 +98,11 @@ const wskParams = `--apihost ${config.APIHOST} --auth ${config.AUTH} -i`;    // 
 const ow = openwhisk({apihost: config.APIHOST, api_key: config.AUTH, ignore_certs: true});
 
 // counters for throughput computation (all)
-const tpCounters = {attempts: 0, invocations: 0, activations: 0, requests: 0, errors: 0};
+const tpCounters = {attempts: 0, invocations: 0, activations: 0, requests: 0, errors: 0, iterations: 0};
 
 // counters for latency computation
 const latCounters = {
+                    cim: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
                     ta: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
                     oea: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
                     oer: {sum: undefined, sumSqr: undefined, min: undefined, max: undefined, cnt: 0},
@@ -383,6 +384,9 @@ async function mainLoop() {
 
         const ei = new Date().getTime();    // EI = End of Iteration timestamp
         const duration = ei - si;
+        if (duration > delta)
+            updateLatSample("cim", (duration - delta));   // client iteration miss - to allow a user to select a reasonable delta between iterations
+        tpCounters.iterations++;    // count another completed iteration
         if (delta > duration) {
             loopSleeper = sleep(delta - duration);
             if (!abort)        // check again to avoid race condition on loopSleeper
@@ -744,7 +748,18 @@ function computErrorStats() {
 
     const errAbs = totalErrors;
     const errPer = totalErrors * 100.0 / totalRequests;
-    return ({abs: errAbs, percent: errPer});
+    const cim = computeLatStats("cim");
+
+    // Compute the number of iterations that cim.cnt is relative to
+    var iterations = 0;
+    if (testRecord.input.master_apart)
+        iterations =  workerData[0].tp.iterations;
+    else
+        workerData.forEach(wd => {iterations += wd.tp.iterations;});
+
+    cim.pct = cim.cnt * 100.0 / iterations;   // percent of delta miss out of total iterations
+
+    return ({abs: errAbs, percent: errPer, cim: cim});
 }
 
 
