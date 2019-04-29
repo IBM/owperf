@@ -56,11 +56,14 @@ program
     .option('-D, --master_delta <msec>', "Set master delta apart from other workers", parseInt)
     .option('-u, --warmup <count>', "How many invocations to perform at each worker as warmup", parseIntDef, 5)
     .option('-l, --delay <msec>', "How many msec to delay at each action", parseIntDef, 50)
-    .option('-P --pp_delay <msec>', "Wait for remaining activations to finalize before post-processing", parseIntDef, 60000)
-    .option('-G --burst_timing', "For actions, use the same invocation timing (BI) for all actions in a burst")
-    .option('-S --no-setup', "Skip test setup (so use previous setup)")
-    .option('-T --no-teardown', "Skip test teardown (to allow setup reuse)")
-    .option('-f --config_file <filepath>', "Specify a wskprops configuration file to use", `${process.env.HOME}/.wskprops`)
+    .option('-P, --pp_delay <msec>', "Wait for remaining activations to finalize before post-processing", parseIntDef, 60000)
+    .option('-G, --burst_timing', "For actions, use the same invocation timing (BI) for all actions in a burst")
+    .option('-S, --no-setup', "Skip test setup (so use existing setup)")
+    .option('-T, --no-teardown', "Skip test teardown (to allow setup reuse)")
+    .option('-f, --config_file <filepath>', "Specify a wskprops configuration file to use", `${process.env.HOME}/.wskprops`)
+    .option('-e, --event_trigger <name>', "Specify a custom event trigger to use in tests", "testTrigger")
+    .option('-t, --test_action <name>', "Specify a custom action to use in tests", "testAction")
+    .option('-L, --payload_file <filepath>', "Specify a custom payload for rule or action in a JSON file")
     .option('-q, --quiet', "Suppress progress information on stderr");
 
 program.parse(process.argv);
@@ -84,8 +87,10 @@ for (var opt in testRecord.input)
 mLog("-----\n");
 
 mLog("Generating invocation parameters");
+const params = (testRecord.input.payload_file ? JSON.parse(fs.readFileSync(testRecord.input.payload_file)) : {});
 var inputMessage = "A".repeat(testRecord.input.parameter_size);
-var params = {sleep: testRecord.input.delay, message: inputMessage};
+params.sleep = testRecord.input.delay;
+params.message = inputMessage;
 
 mLog("Loading wskprops");
 const config = ini.parse(fs.readFileSync(testRecord.input.config_file, "utf-8"));
@@ -210,7 +215,7 @@ async function testSetup() {
     if (!testRecord.input.setup)
         return;
 
-    const cmd = `./setup.sh s ${testRecord.input.ratio} ${wskParams}`;
+    const cmd = `./setup.sh s ${testRecord.input.ratio} ${testRecord.input.event_trigger} ${testRecord.input.test_action} ${wskParams}`;
     mLog(`SETUP: ${cmd}`);
 
     try {
@@ -231,7 +236,7 @@ async function testTeardown() {
     if (!testRecord.input.teardown)
         return;
 
-    const cmd = `./setup.sh t ${testRecord.input.ratio} ${wskParams}`;
+    const cmd = `./setup.sh t ${testRecord.input.ratio} ${testRecord.input.event_trigger} ${testRecord.input.test_action} ${wskParams}`;
     mLog(`TEARDOWN: ${cmd}`);
 
     try {
@@ -417,7 +422,7 @@ function invokeActions(count, doBlocking, getResult) {
         for(var i = 0; i< count; i++) {
             ipa[i] = new Promise((resolve, reject) => {
                 const bi = (testRecord.input.burst_timing ? burst_bi : new Date().getTime());  // default is BI per invocation
-                ow.actions.invoke({name: 'testAction', blocking: doBlocking, result: getResult, params: params})
+                ow.actions.invoke({name: testRecord.input.test_action, blocking: doBlocking, result: getResult, params: params})
                     // If returnedJSON is full activation or just activation ID then activation ID should be in "activationId" field
                     // If returnedJSON is the result of the test action, then "activationId" is part of the returned result of the test action
                     .then(returnedJSON => {
@@ -450,7 +455,7 @@ function invokeRules() {
         const bi = new Date().getTime();
         const triggerSamples = [];
         // Fire trigger to invoke the rule
-        ow.triggers.invoke({name: 'testTrigger', params: params})
+        ow.triggers.invoke({name: testRecord.input.event_trigger, params: params})
             .then(triggerActivationIdJSON => {
                 const triggerActivationId = triggerActivationIdJSON.activationId;
                 triggerSamples.push({taid: triggerActivationId, bi: bi});

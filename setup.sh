@@ -30,12 +30,15 @@ set -x
 MAXRULES=30	# assume no more than 30 rules per trigger max
 op=$1		# s for setup, t for teardown
 count=$2	# ratio for rules
+trigger=$3	# name of trigger
+action=$4	# name of action
+rulepfx="rule_$trigger_$action"
 delcount=$count # For teardown, delete ratio rules. For setup, delete MAXRULES
 if [ "$op" = "s" ]; then
 	delcount=$MAXRULES
 fi
 
-shift 2
+shift 4
 wskparams="$@"	# All other parameters are assumed to be OW-specific
 
 
@@ -43,14 +46,14 @@ function remove_assets() {
 
 	# Delete rules
 	for i in $(seq 1 $delcount); do
-    		wsk rule delete testRule_$i $@;
+    		wsk rule delete $rulepfx_$i $@;
 	done
 
 	# Delete trigger
-	wsk trigger delete testTrigger $@
+	wsk trigger delete $trigger $@
 
 	# Delete action
-	wsk action delete testAction $@
+	wsk action delete $action $@
 
 }
 
@@ -58,14 +61,14 @@ function remove_assets() {
 function deploy_assets() {
 
 	# Create action
-	wsk action create testAction testAction.js --kind nodejs:8 $@
+	wsk action create $action testAction.js --kind nodejs:8 $@
 
 	# Create trigger after deleting it
-	wsk trigger create testTrigger $@
+	wsk trigger create $trigger $@
 
 	# Create rules
 	for i in $(seq 1 $count); do
-    		wsk rule create testRule_$i testTrigger testAction $@;
+    		wsk rule create $rulepfx_$i $trigger $action $@;
 	done
 
 }
