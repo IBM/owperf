@@ -91,6 +91,7 @@ const params = (testRecord.input.payload_file ? JSON.parse(fs.readFileSync(testR
 var inputMessage = "A".repeat(testRecord.input.parameter_size);
 params.sleep = testRecord.input.delay;
 params.message = inputMessage;
+mLog(`Parameters: ${JSON.stringify(params, null, 4)}`);
 
 mLog("Loading wskprops");
 const config = ini.parse(fs.readFileSync(testRecord.input.config_file, "utf-8"));
