@@ -32,7 +32,7 @@ op=$1		# s for setup, t for teardown
 count=$2	# ratio for rules
 trigger=$3	# name of trigger
 action=$4	# name of action
-rulepfx="rule_$trigger_$action"
+rulepfx="rule-$trigger-$action"
 delcount=$count # For teardown, delete ratio rules. For setup, delete MAXRULES
 if [ "$op" = "s" ]; then
 	delcount=$MAXRULES
@@ -46,7 +46,7 @@ function remove_assets() {
 
 	# Delete rules
 	for i in $(seq 1 $delcount); do
-    		wsk rule delete $rulepfx_$i $@;
+    		wsk rule delete $rulepfx-$i $@;
 	done
 
 	# Delete trigger
@@ -68,7 +68,7 @@ function deploy_assets() {
 
 	# Create rules
 	for i in $(seq 1 $count); do
-    		wsk rule create $rulepfx_$i $trigger $action $@;
+    		wsk rule create $rulepfx-$i $trigger $action $@;
 	done
 
 }
