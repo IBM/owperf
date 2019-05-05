@@ -79,7 +79,7 @@ Based on these timestamps, the following measurements are taken:
 * **RTT** (Round Trip Time) - time at the client from action invocation till reply received (blocking action tests only). RTT = AI - BI
 * **ORTT** (Overhead of RTT) - RTT at the client exclugin the net action computation time. ORTT = RTT - D
 
-For each measurement, the tool computes average (_avg_), standard deviation (_std_), and extremes (_min_ and _max_).
+For each measurement, the tool computes average (_avg_), standard deviation (_std_), extremes (_min_ and _max_) and number of samples (_cnt_). For the current implementation, _cnt_ of any of the above mmeasurements should be the same as number of invocations.
 
 The following chart depicts the relationship between the various measurements and the action invocation and rule invocation flows.
 
