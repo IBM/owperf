@@ -43,7 +43,7 @@ It is possible to invoke the tool in "Master apart" mode, where the master clien
 
 The tool is highly customizable via CLI options. All the independent test variables are controlled via CLI. This includes number of workers, invocation pattern, OW client configuration, test action sleep time, etc.
 
-Test setup and teardown can be independently skipped via CLI, and/or directly invoked from the external setup script (```setup.sh```), so that setup can be shared between multiple tests. More advanced users can replace the test action with a custom action in the setup script to benchmark action invocation or event-respose throughput and latency of specific applications.
+Test setup and teardown can be independently skipped via CLI, and/or be directly invoked from the external setup script (```setup.sh```), so that setup can be shared between multiple tests. More advanced users can set up a custom test action, a custom event trigger and custom payload for events or action parameters. This can be used to benchmark specific applications, or to combine multiple tests together concurrently for a simulation of a mix of serverless applications. 
 
 **Clock skew**: OpenWhisk is a distributed system, which means that clock skew is expected between the client machine computing invocation timestamps and the controllers or invokers that generate the timestamps in the activation records. However, this tool assumes that clock skew is bound at few msec range, due to having all machines clocks synchronized, typically using NTP. At such a scale, clock skew is quite small compared to the measured time periods. Some of the time periods are measured using the same clock (see below) and are therefore oblivious to clock skew issues.
 
