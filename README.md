@@ -94,7 +94,10 @@ Throughput is measured w.r.t. several different counters. During post-processing
 
 For each counter, the tool reports the total counter value (_abs_), total throughput per second (_tp_), througput of the worker clients without the master (_tpw_) and the master's percentage of throughput relative to workers (_tpd_). The last two values are important mostly for master apart mode.
 
-Aside from that, the tool also counts **errors**. Failed invocations - of actions, of triggers, or of actions from triggers (via rules) are counted each as an error. The tool reports both absolute error count (_abs_) and percent out of requests (_percent_).
+### Errors
+Aside from latency and throughput, the tool also counts **errors**. Failed invocations - of actions, of triggers, or of actions from triggers (via rules) are counted each as an error. The tool reports both absolute error count (_abs_) and percent out of requests (_percent_). 
+
+Another specific latency metric in errors is _cim_ (Client Invocation Miss). This metric records how long it takes the client to perform an invocation of an action (directly) or of a rule (via trigger), beyond the specified _delta_. Consequently, this metric is recorded only when the API invocation at the client takes more than _delta_, which may happen in a slow connections between the test machine (e.g., the user's laptop) and the OpenWhisk service. The user should increase _delta_ to make the _cim.cnt_ and _cim.pct_ (percent of total attempts) values as low as possible (ideally, zero), denoting a long-enough delta to acoommodate the quality of the connection. This allows the user to set delta such that the attempts throughput (the arrival rate - see above) is indeed controlled, according to the formula above.
 
 ## Acknowledgements
 The owperf tool has been developed by IBM Research as part of the [CLASS](https://class-project.eu/) EU project. CLASS aims to integrate OpenWhisk as a foundation for latency-sensitive polyglot event-driven big-data analytics platform running on a compute continuum from the cloud to the edge. CLASS is funded by the European Union's Horizon 2020 Programme grant agreement No. 780622.
